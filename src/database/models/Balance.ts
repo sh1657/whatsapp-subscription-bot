@@ -46,8 +46,7 @@ const balanceSchema = new Schema<IBalanceDocument>(
   }
 );
 
-// Indexes
-balanceSchema.index({ userId: 1 });
+// Indexes (userId has unique index automatically)
 balanceSchema.index({ balance: 1 });
 
 // Methods

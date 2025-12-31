@@ -60,8 +60,7 @@ const salesAgentSchema = new Schema<ISalesAgentDocument>(
   }
 );
 
-// Indexes
-salesAgentSchema.index({ phoneNumber: 1 });
+// Indexes (phoneNumber has unique index automatically)
 salesAgentSchema.index({ active: 1 });
 
 export const SalesAgent = mongoose.model<ISalesAgentDocument>('SalesAgent', salesAgentSchema);
