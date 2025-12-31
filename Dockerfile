@@ -1,6 +1,9 @@
 # Build stage
 FROM node:18 AS builder
 
+# Cache bust
+ARG CACHE_DATE=2025-12-31
+
 WORKDIR /app
 
 # Copy package files
