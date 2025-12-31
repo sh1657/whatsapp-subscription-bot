@@ -2,7 +2,7 @@ import { Client, LocalAuth, Message as WAMessage } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { config } from '../config';
 import logger from '../config/logger';
-import { User, Message } from '../database';
+import { User, Message, isDatabaseConnected } from '../database';
 import { BotCommand } from '../types';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { PaymentService } from '../services/PaymentService';
@@ -118,6 +118,22 @@ export class WhatsAppBot {
       const phoneNumber = message.from.replace('@c.us', '');
       const content = message.body.trim();
 
+      // Check if database is available
+      if (!isDatabaseConnected()) {
+        logger.warn('Database not connected, responding without user data');
+        // If command starts with /, try to handle it without DB
+        if (content.startsWith('/')) {
+          if (content.toLowerCase().startsWith('/help')) {
+            await this.handleHelpCommandNoDb(message);
+          } else {
+            await message.reply('❌ המערכת לא זמינה כרגע. אנא נסה שוב מאוחר יותר.');
+          }
+        } else {
+          await message.reply('👋 שלום! כרגע המערכת לא זמינה. שלח /help לקבלת מידע בסיסי.');
+        }
+        return;
+      }
+
       // Save message to database
       await this.saveMessage(phoneNumber, content, 'incoming', message.id._serialized);
 
@@ -180,6 +196,21 @@ export class WhatsAppBot {
 ${Array.from(this.commands.values())
   .map((cmd) => `/${cmd.command} - ${cmd.description}`)
   .join('\n')}
+
+לתמיכה, צור קשר עם הצוות שלנו.
+    `.trim();
+
+    await message.reply(helpText);
+  }
+
+  private async handleHelpCommandNoDb(message: WAMessage): Promise<void> {
+    const helpText = `
+🤖 *ברוכים הבאים לבוט מנויים!*
+
+הבוט כרגע פועל במצב תחזוקה.
+פקודות מלאות יהיו זמינות בקרוב.
+
+/help - הצג הודעה זו
 
 לתמיכה, צור קשר עם הצוות שלנו.
     `.trim();

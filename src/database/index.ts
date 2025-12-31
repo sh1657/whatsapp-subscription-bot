@@ -4,11 +4,19 @@ import logger from '../config/logger';
 
 export const connectDatabase = async (): Promise<void> => {
   try {
-    await mongoose.connect(config.mongodbUri);
+    if (!config.mongodbUri) {
+      logger.warn('⚠️  MongoDB URI not configured, running without database');
+      return;
+    }
+    await mongoose.connect(config.mongodbUri, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5 seconds
+      connectTimeoutMS: 10000
+    });
     logger.info('✅ Connected to MongoDB');
   } catch (error) {
     logger.error('❌ MongoDB connection error:', error);
-    process.exit(1);
+    logger.warn('⚠️  Continuing without database...');
+    // Don't exit - continue without MongoDB
   }
 };
 
@@ -19,6 +27,11 @@ mongoose.connection.on('disconnected', () => {
 mongoose.connection.on('error', (error) => {
   logger.error('❌ MongoDB error:', error);
 });
+
+// Helper function to check if database is connected
+export const isDatabaseConnected = (): boolean => {
+  return mongoose.connection.readyState === 1;
+};
 
 export * from './models/User';
 export * from './models/SubscriptionPlan';
