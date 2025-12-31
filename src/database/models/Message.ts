@@ -48,9 +48,8 @@ const messageSchema = new Schema<IMessageDocument>(
   }
 );
 
-// Indexes
+// Indexes (messageId has unique index automatically)
 messageSchema.index({ userId: 1, timestamp: -1 });
 messageSchema.index({ phoneNumber: 1, timestamp: -1 });
-messageSchema.index({ messageId: 1 });
 
 export const Message = mongoose.model<IMessageDocument>('Message', messageSchema);

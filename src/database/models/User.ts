@@ -78,8 +78,7 @@ const userSchema = new Schema<IUserDocument>(
   }
 );
 
-// Indexes
-userSchema.index({ phoneNumber: 1 });
+// Indexes (phoneNumber has unique index automatically)
 userSchema.index({ stripeCustomerId: 1 });
 userSchema.index({ subscriptionStatus: 1 });
 
