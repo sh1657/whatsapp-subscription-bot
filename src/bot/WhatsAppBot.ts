@@ -202,6 +202,21 @@ export class WhatsAppBot {
   private async handleCommand(message: WAMessage, user: any): Promise<void> {
     const content = message.body.trim();
     
+    // 🔒 ADMIN ONLY: Check if sender is admin for private messages
+    const phoneNumber = message.from.replace('@c.us', '');
+    const adminNumbers = config.adminPhoneNumbers || [];
+    
+    // Get chat to check if it's a group
+    const msg = message as Message;
+    const chat = await msg.getChat();
+    
+    // For private messages, only respond to admin
+    if (!chat.isGroup && !adminNumbers.includes(phoneNumber)) {
+      // Silently ignore messages from non-admin users
+      logger.info(`🚫 Ignored command from non-admin number: ${phoneNumber}`);
+      return;
+    }
+    
     // Special handling for Hebrew "פ" command
     if (content.startsWith('פ ')) {
       const args = content.substring(2).trim().split(' ');
