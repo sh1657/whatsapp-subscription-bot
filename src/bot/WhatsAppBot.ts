@@ -84,7 +84,8 @@ export class WhatsAppBot {
 
   private initializeEventHandlers(): void {
     this.client.on('qr', (qr) => {
-      logger.info('📱 QR Code received, scan it with WhatsApp');
+      logger.info('�🚨🚨 VERSION 2026-01-01-FINAL 🚨🚨🚨');
+      logger.info('�📱 QR Code received, scan it with WhatsApp');
       logger.info('='.repeat(80));
       logger.info('🔗 SCAN THIS QR CODE URL:');
       logger.info('https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(qr));
