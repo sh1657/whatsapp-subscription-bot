@@ -19,14 +19,16 @@ async function main() {
   try {
     logger.info('🚀 Starting WhatsApp Bot Application...');
 
-    // Connect to database
-    await connectDatabase();
-
-    // Start API server FIRST and wait for it to be ready
+    // Start API server FIRST - Render needs to see port open immediately!
     logger.info('📡 Starting API server...');
     const apiServer = new ApiServer();
     await apiServer.start();
-    logger.info('✅ API Server is ready!');
+    logger.info('✅ API Server is ready on port!');
+
+    // Connect to database in background (don't block)
+    connectDatabase().catch(error => {
+      logger.error('❌ Database connection failed:', error);
+    });
 
     // Start WhatsApp bot in background (don't block)
     logger.info('📱 Initializing WhatsApp client...');
