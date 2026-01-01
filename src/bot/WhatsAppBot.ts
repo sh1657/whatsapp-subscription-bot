@@ -96,6 +96,13 @@ export class WhatsAppBot {
       description: 'עצור חיפוש אקטיבי',
       handler: this.handleStopSearchCommand.bind(this),
     });
+
+    // List groups command
+    this.commands.set('קבוצות', {
+      command: 'קבוצות',
+      description: 'הצג רשימת קבוצות שהבוט רואה',
+      handler: this.handleListGroupsCommand.bind(this),
+    });
   }
 
   private initializeEventHandlers(): void {
@@ -497,9 +504,15 @@ ${Array.from(this.commands.values())
       const contact = await message.getContact();
       const content = message.body;
 
+      logger.info(`📥 Group message received from "${chat.name}": ${content.substring(0, 50)}...`);
+
       // Check active searches and notify users
       for (const [phoneNumber, searchTerm] of this.activeSearches.entries()) {
+        logger.info(`🔍 Checking search "${searchTerm}" for ${phoneNumber} against: "${content}"`);
+        
         if (content.trim().startsWith(searchTerm)) {
+          logger.info(`✅ MATCH FOUND! Sending notification to ${phoneNumber}`);
+          
           const date = new Date().toLocaleDateString('he-IL');
           const time = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
           
@@ -530,7 +543,7 @@ ${Array.from(this.commands.values())
           timestamp: new Date(message.timestamp * 1000),
         });
 
-        logger.info(`📥 Saved group message from ${chat.name}`);
+        logger.info(`💾 Saved group message to DB from ${chat.name}`);
       }
     } catch (error) {
       logger.error('Error handling group message:', error);
@@ -606,6 +619,37 @@ ${Array.from(this.commands.values())
     } catch (error) {
       logger.error('Error in stop search command:', error);
       await message.reply('❌ אירעה שגיאה.');
+    }
+  }
+
+  // List groups command
+  private async handleListGroupsCommand(message: WAMessage): Promise<void> {
+    try {
+      logger.info('📋 Listing groups...');
+      const chats = await this.client.getChats();
+      const groups = chats.filter((chat: any) => chat.isGroup);
+
+      if (groups.length === 0) {
+        await message.reply('❌ לא נמצאו קבוצות.\n\nהמספר שמחובר לבוט צריך להיות חבר בקבוצות כדי שהבוט יוכל לקרוא מהן.');
+        return;
+      }
+
+      let response = `📋 *קבוצות שהבוט רואה (${groups.length}):*\n\n`;
+      
+      groups.slice(0, 20).forEach((group: any, index: number) => {
+        response += `${index + 1}. ${group.name}\n`;
+        response += `   👥 ${group.participants ? group.participants.length : '?'} חברים\n\n`;
+      });
+
+      if (groups.length > 20) {
+        response += `\n... ועוד ${groups.length - 20} קבוצות נוספות`;
+      }
+
+      await message.reply(response);
+      logger.info(`✅ Listed ${groups.length} groups`);
+    } catch (error) {
+      logger.error('Error listing groups:', error);
+      await message.reply('❌ אירעה שגיאה בקבלת רשימת הקבוצות.');
     }
   }
 
