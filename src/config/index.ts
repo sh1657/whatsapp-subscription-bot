@@ -8,7 +8,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // Database
-  mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/whatsapp-bot',
+  mongodbUri: process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb://localhost:27017/whatsapp-bot',
 
   // JWT
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
