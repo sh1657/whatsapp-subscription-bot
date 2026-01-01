@@ -67,11 +67,14 @@ export class ApiServer {
     this.app.use(errorHandler);
   }
 
-  public start(): void {
-    const port = config.port;
-    this.app.listen(port, () => {
-      logger.info(`🚀 API Server running on port ${port}`);
-      logger.info(`📍 http://localhost:${port}`);
+  public start(): Promise<void> {
+    return new Promise((resolve) => {
+      const port = config.port;
+      this.app.listen(port, () => {
+        logger.info(`🚀 API Server running on port ${port}`);
+        logger.info(`📍 http://localhost:${port}`);
+        resolve();
+      });
     });
   }
 

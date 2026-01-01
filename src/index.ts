@@ -22,13 +22,18 @@ async function main() {
     // Connect to database
     await connectDatabase();
 
-    // Start API server
+    // Start API server FIRST and wait for it to be ready
+    logger.info('📡 Starting API server...');
     const apiServer = new ApiServer();
-    apiServer.start();
+    await apiServer.start();
+    logger.info('✅ API Server is ready!');
 
-    // Start WhatsApp bot
+    // Start WhatsApp bot in background (don't block)
+    logger.info('📱 Initializing WhatsApp client...');
     const bot = new WhatsAppBot();
-    await bot.start();
+    bot.start().catch(error => {
+      logger.error('❌ WhatsApp bot failed:', error);
+    });
 
     // Start cron jobs
     const cronJobs = new CronJobs();

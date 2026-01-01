@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: whatsapp-subscription-bot
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: WHATSAPP_SESSION_PATH
+        value: ./.wwebjs_auth
+      - key: ADMIN_PHONE_NUMBERS
+        value: 972525899053
+      - key: TRIAL_DAYS
+        value: 7
+      - key: BASIC_PLAN_MESSAGES
+        value: 100
+      - key: PREMIUM_PLAN_MESSAGES
+        value: 1000
