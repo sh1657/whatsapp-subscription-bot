@@ -37,6 +37,7 @@ export * from './models/User';
 export * from './models/SubscriptionPlan';
 export * from './models/Payment';
 export * from './models/Message';
+export * from './models/GroupMessage';
 export * from './models/SalesAgent';
 export * from './models/Transaction';
 export * from './models/Balance';

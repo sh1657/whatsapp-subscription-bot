@@ -2,7 +2,7 @@ import { Client, LocalAuth, Message as WAMessage } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { config } from '../config';
 import logger from '../config/logger';
-import { User, Message, isDatabaseConnected } from '../database';
+import { User, Message, GroupMessage, isDatabaseConnected } from '../database';
 import { BotCommand } from '../types';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { PaymentService } from '../services/PaymentService';
@@ -81,6 +81,13 @@ export class WhatsAppBot {
       description: 'הצג היסטוריית תנועות',
       handler: this.handleTransactionsCommand.bind(this),
     });
+
+    // Search command (פ)
+    this.commands.set('פ', {
+      command: 'פ',
+      description: 'חפש הודעות בקבוצות - דוגמה: פ ים',
+      handler: this.handleSearchCommand.bind(this),
+    });
   }
 
   private initializeEventHandlers(): void {
@@ -116,8 +123,9 @@ export class WhatsAppBot {
 
   private async handleMessage(message: WAMessage): Promise<void> {
     try {
-      // Ignore group messages
+      // Handle group messages separately
       if (message.from.includes('@g.us')) {
+        await this.handleGroupMessage(message);
         return;
       }
 
@@ -162,8 +170,8 @@ export class WhatsAppBot {
       user.lastMessageDate = new Date();
       await user.save();
 
-      // Handle commands
-      if (content.startsWith('/')) {
+      // Handle commands (support both / and ! and Hebrew פ)
+      if (content.startsWith('/') || content.startsWith('!') || content.startsWith('פ ')) {
         await this.handleCommand(message, user);
       } else {
         // Handle regular messages
@@ -177,12 +185,25 @@ export class WhatsAppBot {
 
   private async handleCommand(message: WAMessage, user: any): Promise<void> {
     const content = message.body.trim();
-    const [commandName, ...args] = content.slice(1).split(' ');
+    
+    // Special handling for Hebrew "פ" command
+    if (content.startsWith('פ ')) {
+      const args = content.substring(2).trim().split(' ');
+      const command = this.commands.get('פ');
+      if (command) {
+        await command.handler(message, args);
+      }
+      return;
+    }
+
+    // Handle regular commands with / or !
+    const prefix = content.startsWith('/') || content.startsWith('!') ? 1 : 0;
+    const [commandName, ...args] = content.slice(prefix).split(' ');
     const command = this.commands.get(commandName.toLowerCase());
 
     if (!command) {
       await message.reply(
-        `פקודה לא מוכרת. שלח /help לרשימת הפקודות הזמינות.`
+        `פקודה לא מוכרת. שלח !help לרשימת הפקודות הזמינות.`
       );
       return;
     }
@@ -190,7 +211,7 @@ export class WhatsAppBot {
     // Check subscription requirement
     if (command.requiresSubscription && !user.hasActiveSubscription()) {
       await message.reply(
-        `פקודה זו דורשת מנוי פעיל. שלח /subscribe להתחלת מנוי.`
+        `פקודה זו דורשת מנוי פעיל. שלח !subscribe להתחלת מנוי.`
       );
       return;
     }
@@ -224,9 +245,17 @@ ${Array.from(this.commands.values())
 📋 *פקודות זמינות:*
 • !help או !start - הצג תפריט זה
 • !status - בדוק סטטוס המערכת
+• פ <מילה> - חפש הודעות בקבוצות (דורש DB)
 
 💡 *לתכונות מלאות:*
 יש לחבר מסד נתונים MongoDB
+(מנויים, תשלומים, ניהול משתמשים)
+
+🔧 הבוט מוכן ומאזין להודעות!
+    `.trim();
+
+    await message.reply(helpText);
+  }
 (מנויים, תשלומים, ניהול משתמשים)
 
 🔧 הבוט מוכן ומאזין להודעות!
@@ -448,6 +477,82 @@ ${Array.from(this.commands.values())
       cancelled: 'מבוטל',
     };
     return statusMap[status] || status;
+  }
+
+  // Handle group messages - save to database
+  private async handleGroupMessage(message: WAMessage): Promise<void> {
+    try {
+      if (!isDatabaseConnected()) {
+        return; // Don't save if DB not connected
+      }
+
+      const chat = await message.getChat();
+      const contact = await message.getContact();
+      
+      await GroupMessage.create({
+        groupId: message.from,
+        groupName: chat.name || 'Unknown Group',
+        senderNumber: contact.number || message.author || 'Unknown',
+        senderName: contact.pushname || contact.name,
+        content: message.body,
+        messageId: message.id._serialized,
+        timestamp: new Date(message.timestamp * 1000),
+      });
+
+      logger.info(`📥 Saved group message from ${chat.name}`);
+    } catch (error) {
+      logger.error('Error handling group message:', error);
+    }
+  }
+
+  // Search command - פ <keyword>
+  private async handleSearchCommand(message: WAMessage, args: string[]): Promise<void> {
+    try {
+      if (!isDatabaseConnected()) {
+        await message.reply('⚠️ מסד הנתונים לא מחובר. לא ניתן לחפש.');
+        return;
+      }
+
+      const searchTerm = args.join(' ').trim();
+      if (!searchTerm) {
+        await message.reply('❌ נא לציין מילה לחיפוש.\n\nדוגמה: פ ים');
+        return;
+      }
+
+      logger.info(`🔍 Searching for messages starting with: ${searchTerm}`);
+
+      // Search for messages that start with the search term
+      const results = await GroupMessage.find({
+        content: { $regex: `^${searchTerm}`, $options: 'i' }
+      })
+      .sort({ timestamp: -1 })
+      .limit(20);
+
+      if (results.length === 0) {
+        await message.reply(`🔍 לא נמצאו הודעות שמתחילות ב-"${searchTerm}"`);
+        return;
+      }
+
+      // Format results
+      let response = `🔍 *נמצאו ${results.length} תוצאות עבור "${searchTerm}":*\n\n`;
+      
+      results.forEach((msg, index) => {
+        const date = msg.timestamp.toLocaleDateString('he-IL');
+        const time = msg.timestamp.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+        
+        response += `${index + 1}. 📱 *${msg.groupName}*\n`;
+        response += `   👤 ${msg.senderName || msg.senderNumber}\n`;
+        response += `   📅 ${date} ${time}\n`;
+        response += `   💬 ${preview}\n\n`;
+      });
+
+      await message.reply(response);
+      logger.info(`✅ Sent ${results.length} search results`);
+    } catch (error) {
+      logger.error('Error in search command:', error);
+      await message.reply('❌ אירעה שגיאה בחיפוש. נסה שוב מאוחר יותר.');
+    }
   }
 
   public async start(): Promise<void> {
