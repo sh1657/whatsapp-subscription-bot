@@ -135,19 +135,20 @@ export class WhatsAppBot {
       // Check if database is available
       if (!isDatabaseConnected()) {
         logger.warn('Database not connected, working in limited mode');
-        // Work without DB - handle basic commands
-        if (content.startsWith('/') || content.startsWith('!')) {
+        // Work without DB - handle basic commands ONLY
+        if (content.startsWith('/') || content.startsWith('!') || content.startsWith('פ ')) {
           const commandText = content.substring(1).toLowerCase();
           if (commandText.startsWith('help') || commandText.startsWith('start')) {
             await this.handleHelpCommandNoDb(message);
           } else if (commandText.startsWith('status')) {
             await message.reply('📊 *סטטוס מערכת*\n\n⚠️ מסד הנתונים לא מחובר כרגע.\nהמערכת פועלת במצב מוגבל.\n\nתכונות זמינות:\n✅ פקודות עזרה\n✅ תגובות בסיסיות\n\n❌ מנויים ותשלומים לא זמינים');
+          } else if (content.startsWith('פ ')) {
+            await message.reply('⚠️ פקודת החיפוש דורשת חיבור למסד נתונים.');
           } else {
             await message.reply('⚠️ מסד הנתונים לא מחובר. שלח !help או !start לקבלת מידע.');
           }
-        } else {
-          await message.reply('👋 שלום! הבוט פעיל!\n\nשלח *!start* או *!help* לתפריט הפקודות.');
         }
+        // Don't respond to regular messages when DB is not connected
         return;
       }
 
