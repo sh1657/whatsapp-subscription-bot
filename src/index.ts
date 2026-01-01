@@ -17,6 +17,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 async function main() {
   try {
+    // Railway force redeploy - connecting to MongoDB
     logger.info('🚀 Starting WhatsApp Bot Application...');
 
     // Start WhatsApp bot first to initialize QR
