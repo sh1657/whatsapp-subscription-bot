@@ -1,8 +1,8 @@
 # Build stage
 FROM node:18 AS builder
 
-# Cache bust
-ARG CACHE_DATE=2025-12-31
+# Cache bust - force rebuild
+ARG CACHE_DATE=2026-01-01-v2
 
 WORKDIR /app
 
