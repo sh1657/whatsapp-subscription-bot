@@ -1,8 +1,8 @@
 # Build stage
 FROM node:18 AS builder
 
-# Cache bust - force rebuild
-ARG CACHE_DATE=2026-01-01-v2
+# Cache bust - force rebuild with timestamp
+ARG CACHE_DATE=2026-01-01-v3
 
 WORKDIR /app
 
@@ -15,8 +15,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript with clean slate
+RUN rm -rf dist && npm run build
 
 # Production stage
 FROM node:18
