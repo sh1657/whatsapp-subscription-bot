@@ -207,8 +207,7 @@ export class WhatsAppBot {
     const adminNumbers = config.adminPhoneNumbers || [];
     
     // Get chat to check if it's a group
-    const msg = message as Message;
-    const chat = await msg.getChat();
+    const chat = await message.getChat();
     
     // For private messages, only respond to admin
     if (!chat.isGroup && !adminNumbers.includes(phoneNumber)) {
