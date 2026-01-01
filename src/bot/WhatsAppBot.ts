@@ -204,7 +204,9 @@ export class WhatsAppBot {
     
     // 🔒 ADMIN ONLY: Check if sender is admin for private messages
     const phoneNumber = message.from.replace('@c.us', '');
-    const adminNumbers = config.adminPhoneNumbers || [];
+    
+    // Normalize admin numbers (remove + sign if present)
+    const adminNumbers = (config.adminPhoneNumbers || []).map(num => num.replace(/^\+/, ''));
     
     // Get chat to check if it's a group
     const chat = await message.getChat();
@@ -212,7 +214,7 @@ export class WhatsAppBot {
     // For private messages, only respond to admin
     if (!chat.isGroup && !adminNumbers.includes(phoneNumber)) {
       // Silently ignore messages from non-admin users
-      logger.info(`🚫 Ignored command from non-admin number: ${phoneNumber}`);
+      logger.info(`🚫 Ignored command from non-admin number: ${phoneNumber} (allowed: ${adminNumbers.join(', ')})`);
       return;
     }
     
