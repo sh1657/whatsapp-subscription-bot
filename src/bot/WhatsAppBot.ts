@@ -126,16 +126,19 @@ export class WhatsAppBot {
 
       // Check if database is available
       if (!isDatabaseConnected()) {
-        logger.warn('Database not connected, responding without user data');
-        // If command starts with /, try to handle it without DB
-        if (content.startsWith('/')) {
-          if (content.toLowerCase().startsWith('/help')) {
+        logger.warn('Database not connected, working in limited mode');
+        // Work without DB - handle basic commands
+        if (content.startsWith('/') || content.startsWith('!')) {
+          const commandText = content.substring(1).toLowerCase();
+          if (commandText.startsWith('help') || commandText.startsWith('start')) {
             await this.handleHelpCommandNoDb(message);
+          } else if (commandText.startsWith('status')) {
+            await message.reply('📊 *סטטוס מערכת*\n\n⚠️ מסד הנתונים לא מחובר כרגע.\nהמערכת פועלת במצב מוגבל.\n\nתכונות זמינות:\n✅ פקודות עזרה\n✅ תגובות בסיסיות\n\n❌ מנויים ותשלומים לא זמינים');
           } else {
-            await message.reply('❌ המערכת לא זמינה כרגע. אנא נסה שוב מאוחר יותר.');
+            await message.reply('⚠️ מסד הנתונים לא מחובר. שלח !help או !start לקבלת מידע.');
           }
         } else {
-          await message.reply('👋 שלום! כרגע המערכת לא זמינה. שלח /help לקבלת מידע בסיסי.');
+          await message.reply('👋 שלום! הבוט פעיל!\n\nשלח *!start* או *!help* לתפריט הפקודות.');
         }
         return;
       }
@@ -211,14 +214,22 @@ ${Array.from(this.commands.values())
 
   private async handleHelpCommandNoDb(message: WAMessage): Promise<void> {
     const helpText = `
-🤖 *ברוכים הבאים לבוט מנויים!*
+🤖 *ברוכים הבאים לבוט WhatsApp!*
 
-הבוט כרגע פועל במצב תחזוקה.
-פקודות מלאות יהיו זמינות בקרוב.
+📱 *הבוט פועל ומחובר!* ✅
 
-/help - הצג הודעה זו
+⚠️ *מצב נוכחי:* מוגבל
+מסד הנתונים לא מחובר כרגע.
 
-לתמיכה, צור קשר עם הצוות שלנו.
+📋 *פקודות זמינות:*
+• !help או !start - הצג תפריט זה
+• !status - בדוק סטטוס המערכת
+
+💡 *לתכונות מלאות:*
+יש לחבר מסד נתונים MongoDB
+(מנויים, תשלומים, ניהול משתמשים)
+
+🔧 הבוט מוכן ומאזין להודעות!
     `.trim();
 
     await message.reply(helpText);
