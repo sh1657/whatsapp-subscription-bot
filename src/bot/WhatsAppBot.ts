@@ -147,6 +147,14 @@ export class WhatsAppBot {
       const phoneNumber = message.from.replace('@c.us', '');
       const content = message.body.trim();
 
+      // 🔒 ADMIN ONLY: Check if sender is admin for private messages
+      const adminNumbers = (config.adminPhoneNumbers || []).map(num => num.replace(/^\+/, ''));
+      if (!adminNumbers.includes(phoneNumber)) {
+        // Silently ignore messages from non-admin users
+        logger.info(`🚫 Ignored message from non-admin number: ${phoneNumber} (allowed: ${adminNumbers.join(', ')})`);
+        return; // Don't respond at all
+      }
+
       // Check if database is available
       if (!isDatabaseConnected()) {
         logger.warn('Database not connected, working in limited mode');
@@ -201,22 +209,6 @@ export class WhatsAppBot {
 
   private async handleCommand(message: WAMessage, user: any): Promise<void> {
     const content = message.body.trim();
-    
-    // 🔒 ADMIN ONLY: Check if sender is admin for private messages
-    const phoneNumber = message.from.replace('@c.us', '');
-    
-    // Normalize admin numbers (remove + sign if present)
-    const adminNumbers = (config.adminPhoneNumbers || []).map(num => num.replace(/^\+/, ''));
-    
-    // Get chat to check if it's a group
-    const chat = await message.getChat();
-    
-    // For private messages, only respond to admin
-    if (!chat.isGroup && !adminNumbers.includes(phoneNumber)) {
-      // Silently ignore messages from non-admin users
-      logger.info(`🚫 Ignored command from non-admin number: ${phoneNumber} (allowed: ${adminNumbers.join(', ')})`);
-      return;
-    }
     
     // Special handling for Hebrew "פ" command
     if (content.startsWith('פ ')) {
