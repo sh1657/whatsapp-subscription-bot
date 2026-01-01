@@ -13,6 +13,7 @@ export class WhatsAppBot {
   private subscriptionService: SubscriptionService;
   private paymentService: PaymentService;
   public latestQR: string = ''; // Store latest QR code
+  private activeSearches: Map<string, string> = new Map(); // phoneNumber -> searchTerm
 
   constructor() {
     this.client = new Client({
@@ -85,8 +86,15 @@ export class WhatsAppBot {
     // Search command (פ)
     this.commands.set('פ', {
       command: 'פ',
-      description: 'חפש הודעות בקבוצות - דוגמה: פ ים',
+      description: 'חפש הודעות בקבוצות - דוגמה: פ ים (מעקב אקטיבי)',
       handler: this.handleSearchCommand.bind(this),
+    });
+
+    // Stop search command
+    this.commands.set('עצור', {
+      command: 'עצור',
+      description: 'עצור חיפוש אקטיבי',
+      handler: this.handleStopSearchCommand.bind(this),
     });
   }
 
@@ -193,6 +201,15 @@ export class WhatsAppBot {
       const command = this.commands.get('פ');
       if (command) {
         await command.handler(message, args);
+      }
+      return;
+    }
+
+    // Handle "עצור" command
+    if (content === 'עצור' || content === '!עצור' || content === '/עצור') {
+      const command = this.commands.get('עצור');
+      if (command) {
+        await command.handler(message, []);
       }
       return;
     }
@@ -476,76 +493,119 @@ ${Array.from(this.commands.values())
   // Handle group messages - save to database
   private async handleGroupMessage(message: WAMessage): Promise<void> {
     try {
-      if (!isDatabaseConnected()) {
-        return; // Don't save if DB not connected
-      }
-
       const chat = await message.getChat();
       const contact = await message.getContact();
-      
-      await GroupMessage.create({
-        groupId: message.from,
-        groupName: chat.name || 'Unknown Group',
-        senderNumber: contact.number || message.author || 'Unknown',
-        senderName: contact.pushname || contact.name,
-        content: message.body,
-        messageId: message.id._serialized,
-        timestamp: new Date(message.timestamp * 1000),
-      });
+      const content = message.body;
 
-      logger.info(`📥 Saved group message from ${chat.name}`);
+      // Check active searches and notify users
+      for (const [phoneNumber, searchTerm] of this.activeSearches.entries()) {
+        if (content.trim().startsWith(searchTerm)) {
+          const date = new Date().toLocaleDateString('he-IL');
+          const time = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+          
+          const notification = `🔔 *נמצאה הודעה חדשה!*\n\n` +
+            `📱 *קבוצה:* ${chat.name || 'Unknown'}\n` +
+            `👤 *שולח:* ${contact.pushname || contact.name || contact.number}\n` +
+            `📅 *זמן:* ${date} ${time}\n\n` +
+            `💬 *ההודעה:*\n${content}`;
+
+          try {
+            await this.sendMessage(phoneNumber, notification);
+            logger.info(`✅ Sent notification to ${phoneNumber} for search: ${searchTerm}`);
+          } catch (error) {
+            logger.error(`Failed to send notification to ${phoneNumber}:`, error);
+          }
+        }
+      }
+
+      // Save to database if connected
+      if (isDatabaseConnected()) {
+        await GroupMessage.create({
+          groupId: message.from,
+          groupName: chat.name || 'Unknown Group',
+          senderNumber: contact.number || message.author || 'Unknown',
+          senderName: contact.pushname || contact.name,
+          content: message.body,
+          messageId: message.id._serialized,
+          timestamp: new Date(message.timestamp * 1000),
+        });
+
+        logger.info(`📥 Saved group message from ${chat.name}`);
+      }
     } catch (error) {
       logger.error('Error handling group message:', error);
     }
   }
 
-  // Search command - פ <keyword>
+  // Search command - פ <keyword> (Start active monitoring)
   private async handleSearchCommand(message: WAMessage, args: string[]): Promise<void> {
     try {
-      if (!isDatabaseConnected()) {
-        await message.reply('⚠️ מסד הנתונים לא מחובר. לא ניתן לחפש.');
-        return;
-      }
-
+      const phoneNumber = message.from.replace('@c.us', '');
       const searchTerm = args.join(' ').trim();
+
       if (!searchTerm) {
         await message.reply('❌ נא לציין מילה לחיפוש.\n\nדוגמה: פ ים');
         return;
       }
 
-      logger.info(`🔍 Searching for messages starting with: ${searchTerm}`);
+      // Start active search
+      this.activeSearches.set(phoneNumber, searchTerm);
+      logger.info(`🔍 Started active search for ${phoneNumber}: ${searchTerm}`);
 
-      // Search for messages that start with the search term
-      const results = await GroupMessage.find({
-        content: { $regex: `^${searchTerm}`, $options: 'i' }
-      })
-      .sort({ timestamp: -1 })
-      .limit(20);
+      let response = `🔍 *מעקב אקטיבי מופעל!*\n\n`;
+      response += `🎯 מחפש: "${searchTerm}"\n`;
+      response += `📱 אעקוב אחרי כל הקבוצות שלך\n`;
+      response += `⏰ אשלח לך כל הודעה שמתחילה ב-"${searchTerm}"\n\n`;
+      response += `✋ לעצירה: שלח *עצור*`;
 
-      if (results.length === 0) {
-        await message.reply(`🔍 לא נמצאו הודעות שמתחילות ב-"${searchTerm}"`);
-        return;
+      // Also search history if DB connected
+      if (isDatabaseConnected()) {
+        const results = await GroupMessage.find({
+          content: { $regex: `^${searchTerm}`, $options: 'i' }
+        })
+        .sort({ timestamp: -1 })
+        .limit(5);
+
+        if (results.length > 0) {
+          response += `\n\n📋 *5 הודעות אחרונות מההיסטוריה:*\n\n`;
+          
+          results.forEach((msg, index) => {
+            const date = msg.timestamp.toLocaleDateString('he-IL');
+            const time = msg.timestamp.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            const preview = msg.content.length > 80 ? msg.content.substring(0, 80) + '...' : msg.content;
+            
+            response += `${index + 1}. 📱 ${msg.groupName}\n`;
+            response += `   👤 ${msg.senderName || msg.senderNumber}\n`;
+            response += `   📅 ${date} ${time}\n`;
+            response += `   💬 ${preview}\n\n`;
+          });
+        }
       }
 
-      // Format results
-      let response = `🔍 *נמצאו ${results.length} תוצאות עבור "${searchTerm}":*\n\n`;
-      
-      results.forEach((msg, index) => {
-        const date = msg.timestamp.toLocaleDateString('he-IL');
-        const time = msg.timestamp.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-        const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
-        
-        response += `${index + 1}. 📱 *${msg.groupName}*\n`;
-        response += `   👤 ${msg.senderName || msg.senderNumber}\n`;
-        response += `   📅 ${date} ${time}\n`;
-        response += `   💬 ${preview}\n\n`;
-      });
-
       await message.reply(response);
-      logger.info(`✅ Sent ${results.length} search results`);
     } catch (error) {
       logger.error('Error in search command:', error);
-      await message.reply('❌ אירעה שגיאה בחיפוש. נסה שוב מאוחר יותר.');
+      await message.reply('❌ אירעה שגיאה בהפעלת החיפוש.');
+    }
+  }
+
+  // Stop search command
+  private async handleStopSearchCommand(message: WAMessage): Promise<void> {
+    try {
+      const phoneNumber = message.from.replace('@c.us', '');
+      
+      if (this.activeSearches.has(phoneNumber)) {
+        const searchTerm = this.activeSearches.get(phoneNumber);
+        this.activeSearches.delete(phoneNumber);
+        logger.info(`⏹️ Stopped active search for ${phoneNumber}: ${searchTerm}`);
+        
+        await message.reply(`⏹️ *מעקב אקטיבי הופסק*\n\nלא אעקוב יותר אחרי: "${searchTerm}"`);
+      } else {
+        await message.reply('אין לך חיפוש אקטיבי כרגע.');
+      }
+    } catch (error) {
+      logger.error('Error in stop search command:', error);
+      await message.reply('❌ אירעה שגיאה.');
     }
   }
 
