@@ -19,22 +19,22 @@ async function main() {
   try {
     logger.info('🚀 Starting WhatsApp Bot Application...');
 
-    // Start API server FIRST - Render needs to see port open immediately!
+    // Start WhatsApp bot first to initialize QR
+    logger.info('📱 Initializing WhatsApp client...');
+    const bot = new WhatsAppBot();
+    bot.start().catch(error => {
+      logger.error('❌ WhatsApp bot failed:', error);
+    });
+
+    // Start API server with bot instance - Render needs to see port open immediately!
     logger.info('📡 Starting API server...');
-    const apiServer = new ApiServer();
+    const apiServer = new ApiServer(bot);
     await apiServer.start();
     logger.info('✅ API Server is ready on port!');
 
     // Connect to database in background (don't block)
     connectDatabase().catch(error => {
       logger.error('❌ Database connection failed:', error);
-    });
-
-    // Start WhatsApp bot in background (don't block)
-    logger.info('📱 Initializing WhatsApp client...');
-    const bot = new WhatsAppBot();
-    bot.start().catch(error => {
-      logger.error('❌ WhatsApp bot failed:', error);
     });
 
     // Start cron jobs

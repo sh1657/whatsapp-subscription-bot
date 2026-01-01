@@ -12,6 +12,7 @@ export class WhatsAppBot {
   private commands: Map<string, BotCommand> = new Map();
   private subscriptionService: SubscriptionService;
   private paymentService: PaymentService;
+  public latestQR: string = ''; // Store latest QR code
 
   constructor() {
     this.client = new Client({
@@ -84,8 +85,9 @@ export class WhatsAppBot {
 
   private initializeEventHandlers(): void {
     this.client.on('qr', (qr) => {
-      logger.info('�🚨🚨 VERSION 2026-01-01-FINAL 🚨🚨🚨');
-      logger.info('�📱 QR Code received, scan it with WhatsApp');
+      this.latestQR = qr; // Store the latest QR code
+      logger.info('🚨🚨🚨 VERSION 2026-01-01-FINAL 🚨🚨🚨');
+      logger.info('📱 QR Code received, scan it with WhatsApp');
       logger.info('='.repeat(80));
       logger.info('🔗 SCAN THIS QR CODE URL:');
       logger.info('https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(qr));
