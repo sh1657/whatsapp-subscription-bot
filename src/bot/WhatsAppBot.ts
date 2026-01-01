@@ -257,13 +257,6 @@ ${Array.from(this.commands.values())
 
     await message.reply(helpText);
   }
-(מנויים, תשלומים, ניהול משתמשים)
-
-🔧 הבוט מוכן ומאזין להודעות!
-    `.trim();
-
-    await message.reply(helpText);
-  }
 
   private async handleSubscribeCommand(message: WAMessage): Promise<void> {
     const phoneNumber = message.from.replace('@c.us', '');
